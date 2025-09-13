@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Marker AR Debug</title>
+  <title>Marker AR Debug v2</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
@@ -13,34 +13,39 @@
   <style>
     html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui}
     #wrap{height:100%;width:100%;position:relative;overflow:hidden}
-    .hud { position: absolute; left:12px; top:12px; z-index:3; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px;}
-    .hint { position:absolute; left:12px; bottom:12px; z-index:3; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px;}
+    .hud { position: absolute; left:12px; top:12px; z-index:5; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px; max-width:70%; }
+    .hint { position:absolute; left:12px; bottom:12px; z-index:5; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px; }
     .status { font-size:14px; line-height:1.35; }
     .btn { display:inline-block; margin-top:8px; padding:6px 8px; border-radius:6px; background:#0b74de; color:white; text-decoration:none; font-size:13px;}
+    #debugVideo { position:absolute; right:12px; top:12px; z-index:4; width:120px; height:90px; background:#222; border-radius:8px; object-fit:cover; transform: scaleX(-1); } /* mirrored for front camera */
+    #overlayLog { position:absolute; right:12px; bottom:12px; z-index:5; background:rgba(0,0,0,0.5); padding:6px 8px; border-radius:8px; font-size:12px; max-width:28%; color:#fff; }
   </style>
 </head>
 <body>
   <div id="wrap">
     <div class="hud">
-      <div class="status" id="status">Status: waiting</div>
-      <a class="btn" id="open-in-browser" href="#" style="display:none;">Open in Browser</a>
+      <div class="status" id="status">Status: initializing...</div>
+      <div style="margin-top:6px;font-size:13px">Open in Chrome on Android or Safari on iPhone. Not inside Instagram/WhatsApp.</div>
     </div>
 
-    <div class="hint">Tip: Allow camera → point at printed "hiro" marker (10–15cm). If black screen, open in Chrome/Safari, not inside apps.</div>
+    <video id="debugVideo" autoplay playsinline muted></video>
+    <div id="overlayLog">log: ...</div>
 
-    <!-- AR scene -->
+    <div class="hint">Tip: allow camera → point at printed "hiro" marker (10–15 cm). If black, try another phone/browser.</div>
+
+    <!-- AR scene with forced AR.js sourceFacingMode and explicit sizes -->
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
       renderer="logarithmicDepthBuffer: true;"
-      arjs="sourceType: webcam; debugUIEnabled: false;"
-      >
+      vr-mode-ui="enabled: false"
+      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; sourceWidth: 640; sourceHeight: 480; sourceFacingMode: environment;">
+      
       <a-assets>
-        <!-- Preload model; ensure model.glb is in the same folder on GitHub Pages -->
+        <!-- Preload the model; ensure model.glb is in same folder -->
         <a-asset-item id="myModel" src="model.glb"></a-asset-item>
       </a-assets>
 
-      <!-- Marker: preset="hiro" -->
       <a-marker preset="hiro">
         <a-entity id="model"
                   gltf-model="#myModel"
@@ -60,65 +65,73 @@
 
   <script>
     const statusEl = document.getElementById('status');
-    const openBtn = document.getElementById('open-in-browser');
+    const debugVideo = document.getElementById('debugVideo');
+    const overlayLog = document.getElementById('overlayLog');
 
-    function setStatus(text) { statusEl.textContent = 'Status: ' + text; console.log(text); }
+    function setStatus(text) { statusEl.textContent = 'Status: ' + text; console.log(text); overlayLog.textContent = 'log: ' + text; }
 
-    // Check if opened inside an in-app webview
-    function isInAppBrowser() {
-      const ua = navigator.userAgent || '';
-      // crude check: many in-app browsers contain instagram, fb, twitter, whatsapp
-      return /Instagram|FBAN|FBAV|Twitter|WhatsApp|Line|Messenger/i.test(ua);
-    }
+    // Try to get the environment (rear) camera first. If not available, fallback.
+    async function startDebugStream() {
+      const constraintsPreferEnv = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
+      const constraintsFallback = { video: true, audio: false };
 
-    if (isInAppBrowser()) {
-      setStatus('Detected in-app browser. Please open this link in Chrome/Safari for camera access.');
-      openBtn.style.display = 'inline-block';
-      openBtn.href = window.location.href; // user can long-press and "open in browser"
-    } else {
-      setStatus('Loaded in regular browser. Requesting camera permission...');
-    }
-
-    // Events for the model entity
-    const modelEnt = document.getElementById('model');
-
-    modelEnt.addEventListener('model-loaded', () => {
-      setStatus('Model loaded successfully. Waiting for marker and camera.');
-      modelEnt.setAttribute('visible', 'true');
-      console.log('Model loaded event ->', modelEnt);
-    });
-
-    modelEnt.addEventListener('model-error', (evt) => {
-      setStatus('Model failed to load — check model path/filename or console for details.');
-      console.error('Model error', evt);
-    });
-
-    // Listen to AR.js camera start/stop via the scene's renderer (best-effort)
-    document.querySelector('a-scene').addEventListener('renderstart', () => {
-      console.log('A-Frame renderstart');
-    });
-
-    // Extra: try to detect if camera stream is active
-    async function checkCameraStream() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        const tracks = stream.getVideoTracks();
-        if (tracks && tracks.length > 0) {
-          setStatus('Camera stream active. Now point at marker.');
-          tracks.forEach(t=>t.stop()); // stop the test stream
-          return true;
-        }
+        const stream = await navigator.mediaDevices.getUserMedia(constraintsPreferEnv);
+        debugVideo.srcObject = stream;
+        setStatus('Camera stream active (environment).');
+        return stream;
       } catch (e) {
-        setStatus('Camera permission denied or blocked. Open in Chrome/Safari and allow camera.');
-        console.error('getUserMedia error', e);
-        return false;
+        console.warn('Env camera failed, trying default camera', e);
+        try {
+          const stream2 = await navigator.mediaDevices.getUserMedia(constraintsFallback);
+          debugVideo.srcObject = stream2;
+          setStatus('Camera stream active (default).');
+          return stream2;
+        } catch (err) {
+          console.error('Camera failed', err);
+          setStatus('Camera permission denied or not available.');
+          return null;
+        }
       }
     }
 
-    // Run camera check after a short delay so the page can settle
-    setTimeout(() => {
-      checkCameraStream();
-    }, 800);
+    // Attach debug stream immediately so you can visually confirm camera frames
+    startDebugStream();
+
+    // A-Frame model load / error handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      const modelEnt = document.getElementById('model');
+
+      modelEnt.addEventListener('model-loaded', () => {
+        setStatus('Model loaded successfully. Waiting for marker.');
+        modelEnt.setAttribute('visible', 'true');
+      });
+
+      modelEnt.addEventListener('model-error', (evt) => {
+        setStatus('Model failed to load. Check model path.');
+        console.error('Model error', evt);
+      });
+
+      // Marker found / lost events
+      const marker = document.querySelector('a-marker');
+      marker.addEventListener('markerFound', () => { setStatus('Marker FOUND — model should appear.'); });
+      marker.addEventListener('markerLost', () => { setStatus('Marker LOST'); });
+    });
+
+    // Additional check: ensure page is not inside an in-app browser
+    (function detectInApp() {
+      const ua = navigator.userAgent || '';
+      const inApp = /Instagram|FBAN|FBAV|Twitter|WhatsApp|Line|Messenger/i.test(ua);
+      if (inApp) {
+        setStatus('Detected in-app browser — open in Chrome/Safari for camera access.');
+      }
+    })();
+
+    // Print extra debug info to console (helpful if you use remote debugging)
+    console.log('UserAgent:', navigator.userAgent);
+    navigator.mediaDevices && navigator.mediaDevices.enumerateDevices && navigator.mediaDevices.enumerateDevices()
+      .then(devs => console.log('Devices:', devs))
+      .catch(e => console.warn('Could not list devices', e));
   </script>
 </body>
 </html>
