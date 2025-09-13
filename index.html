@@ -2,56 +2,51 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AR Viewer</title>
-  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Marker AR Demo</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <!-- AR.js for A-Frame -->
+  <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.3.2/aframe/build/aframe-ar.js"></script>
+
   <style>
-    html,body{height:100%;margin:0}
-    model-viewer{width:100%;height:80vh;display:block}
-    .note{padding:12px;text-align:center;font-size:14px}
-    .actions{display:flex;gap:10px;justify-content:center;padding:12px}
-    .btn{padding:10px 16px;border-radius:8px;background:#0b74de;color:#fff;text-decoration:none}
+    html,body{height:100%;margin:0;background:#000}
+    #wrap{height:100%;width:100%;position:relative;overflow:hidden}
+    .message { position: absolute; left:12px; top:12px; z-index:3; color:#fff; font-family:system-ui; background:rgba(0,0,0,0.4); padding:8px 10px; border-radius:8px; }
+    .hint { position:absolute; left:12px; bottom:12px; z-index:3; color:#fff; font-family:system-ui; background:rgba(0,0,0,0.4); padding:8px 10px; border-radius:8px; }
   </style>
 </head>
 <body>
-  <model-viewer id="mv"
-    src="model.glb"
-    alt="3D model"
-    ar
-    ar-modes="webxr scene-viewer quick-look"
-    camera-controls
-    auto-rotate
-    ios-src="">
-  </model-viewer>
+  <div id="wrap">
+    <div class="message">Allow camera → point at the printed marker</div>
+    <div class="hint">Tip: use the "hiro" marker (print or show on other screen)</div>
 
-  <div class="note" id="xr-note">Checking AR support...</div>
+    <!-- AR scene -->
+    <a-scene
+      embedded
+      vr-mode-ui="enabled: false"
+      renderer="logarithmicDepthBuffer: true;"
+      arjs="sourceType: webcam; debugUIEnabled: false;"
+      >
+      <!-- Marker: preset="hiro" (common pattern marker) -->
+      <a-marker preset="hiro">
+        <!-- Place holder entity that loads your model.glb from the same directory -->
+        <a-entity
+          gltf-model="url(model.glb)"
+          scale="0.5 0.5 0.5"
+          rotation="0 180 0"
+          position="0 0 0"
+          animation-mixer
+        ></a-entity>
 
-  <div class="actions">
-    <!-- This link points to a marker-based demo page you can create using MindAR/AR.js -->
-    <a class="btn" href="marker-demo.html" target="_blank">Open Marker-based AR (Browser)</a>
+        <!-- optional ground shadow plane -->
+        <a-plane rotation="-90 0 0" width="1.5" height="1.5" position="0 -0.001 0" material="opacity:0.0;"/>
+      </a-marker>
+
+      <!-- camera -->
+      <a-entity camera></a-entity>
+    </a-scene>
   </div>
-
-  <script>
-    async function checkWebXR() {
-      if (navigator.xr && navigator.xr.isSessionSupported) {
-        try {
-          return await navigator.xr.isSessionSupported('immersive-ar');
-        } catch (e) {
-          return false;
-        }
-      }
-      return false;
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-      const supported = await checkWebXR();
-      const note = document.getElementById('xr-note');
-      if (supported) {
-        note.textContent = 'In-browser markerless AR (WebXR) is supported. Tapping the AR button will open camera in-browser.';
-      } else {
-        note.innerHTML = 'In-browser WebXR not available. Tapping AR may open the native Scene Viewer app. Use the "Marker-based AR" button to view in-browser without apps.';
-      }
-    });
-  </script>
 </body>
 </html>
