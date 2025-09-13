@@ -1,38 +1,57 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>3D AR Viewer</title>
-  <script type="module"
-    src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <title>AR Viewer</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
-    html, body {
-      margin: 0;
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      background: #f9f9f9;
-    }
-    model-viewer {
-      width: 100%;
-      height: 100%;
-      background-color: #fff;
-    }
+    html,body{height:100%;margin:0}
+    model-viewer{width:100%;height:80vh;display:block}
+    .note{padding:12px;text-align:center;font-size:14px}
+    .actions{display:flex;gap:10px;justify-content:center;padding:12px}
+    .btn{padding:10px 16px;border-radius:8px;background:#0b74de;color:#fff;text-decoration:none}
   </style>
 </head>
 <body>
-  <model-viewer
+  <model-viewer id="mv"
     src="model.glb"
-    alt="3D Model"
+    alt="3D model"
     ar
-    ar-modes="scene-viewer quick-look webxr"
+    ar-modes="webxr scene-viewer quick-look"
     camera-controls
     auto-rotate
-    ios-src=""   <!-- put model.usdz here if you have it -->
-    exposure="1"
-    shadow-intensity="1"
-    environment-image="neutral">
+    ios-src="">
   </model-viewer>
+
+  <div class="note" id="xr-note">Checking AR support...</div>
+
+  <div class="actions">
+    <!-- This link points to a marker-based demo page you can create using MindAR/AR.js -->
+    <a class="btn" href="marker-demo.html" target="_blank">Open Marker-based AR (Browser)</a>
+  </div>
+
+  <script>
+    async function checkWebXR() {
+      if (navigator.xr && navigator.xr.isSessionSupported) {
+        try {
+          return await navigator.xr.isSessionSupported('immersive-ar');
+        } catch (e) {
+          return false;
+        }
+      }
+      return false;
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const supported = await checkWebXR();
+      const note = document.getElementById('xr-note');
+      if (supported) {
+        note.textContent = 'In-browser markerless AR (WebXR) is supported. Tapping the AR button will open camera in-browser.';
+      } else {
+        note.innerHTML = 'In-browser WebXR not available. Tapping AR may open the native Scene Viewer app. Use the "Marker-based AR" button to view in-browser without apps.';
+      }
+    });
+  </script>
 </body>
 </html>
