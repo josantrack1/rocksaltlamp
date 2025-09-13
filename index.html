@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Marker AR Debug v2</title>
+  <title>Marker AR — Debug & Guide</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
@@ -13,49 +13,53 @@
   <style>
     html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui}
     #wrap{height:100%;width:100%;position:relative;overflow:hidden}
-    .hud { position: absolute; left:12px; top:12px; z-index:5; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px; max-width:70%; }
-    .hint { position:absolute; left:12px; bottom:12px; z-index:5; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px; }
+    .hud { position: absolute; left:12px; top:12px; z-index:6; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px; max-width:60%;}
+    .hint { position:absolute; left:12px; bottom:12px; z-index:6; background:rgba(0,0,0,0.6); padding:8px 10px; border-radius:8px;}
     .status { font-size:14px; line-height:1.35; }
-    .btn { display:inline-block; margin-top:8px; padding:6px 8px; border-radius:6px; background:#0b74de; color:white; text-decoration:none; font-size:13px;}
-    #debugVideo { position:absolute; right:12px; top:12px; z-index:4; width:120px; height:90px; background:#222; border-radius:8px; object-fit:cover; transform: scaleX(-1); } /* mirrored for front camera */
-    #overlayLog { position:absolute; right:12px; bottom:12px; z-index:5; background:rgba(0,0,0,0.5); padding:6px 8px; border-radius:8px; font-size:12px; max-width:28%; color:#fff; }
+    #debugVideo { position:absolute; right:12px; top:12px; z-index:5; width:120px; height:90px; background:#222; border-radius:8px; object-fit:cover; transform: scaleX(-1); }
+    #markerBox { position:absolute; right:12px; bottom:120px; z-index:6; background:rgba(255,255,255,0.96); padding:6px; border-radius:8px; }
+    #markerBox img { display:block; width:150px; height:150px; object-fit:contain; }
+    #foundOverlay { position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:none; z-index:4; mix-blend-mode:overlay; }
+    #foundOverlay .circle { position:absolute; left:calc(50% - 60px); top:calc(50% - 60px); width:120px; height:120px; border-radius:50%; border:6px solid rgba(0,255,120,0.85); opacity:0; transform:scale(0.6); transition:opacity .25s, transform .25s; }
+    #foundOverlay.show .circle { opacity:1; transform:scale(1); }
+    .debugSmall { font-size:12px; color:#eee; opacity:0.9; margin-top:6px; }
   </style>
 </head>
 <body>
   <div id="wrap">
+
     <div class="hud">
       <div class="status" id="status">Status: initializing...</div>
-      <div style="margin-top:6px;font-size:13px">Open in Chrome on Android or Safari on iPhone. Not inside Instagram/WhatsApp.</div>
+      <div class="debugSmall" id="debugInfo">Debug: waiting</div>
     </div>
 
+    <!-- small camera preview so you can see what camera sees -->
     <video id="debugVideo" autoplay playsinline muted></video>
-    <div id="overlayLog">log: ...</div>
 
-    <div class="hint">Tip: allow camera → point at printed "hiro" marker (10–15 cm). If black, try another phone/browser.</div>
+    <!-- show the hiro marker image (right side) for quick printing or cross-screen test -->
+    <div id="markerBox" title="Print or show this marker on another screen">
+      <div style="font-size:12px;text-align:center;margin-bottom:6px;color:#111;">Marker (hiro)</div>
+      <img id="hiroImg" src="https://raw.githubusercontent.com/AR-js-org/AR.js/master/three.js/data/images/hiro.png" alt="hiro marker"/>
+      <div style="font-size:12px;text-align:center;margin-top:6px;color:#111;">Print at 10–25cm wide</div>
+    </div>
 
-    <!-- AR scene with forced AR.js sourceFacingMode and explicit sizes -->
+    <div id="foundOverlay"><div class="circle"></div></div>
+
+    <div class="hint">Tips: 1) Use back camera. 2) Show marker on another screen or print it. 3) Bright, even light. 4) Hold ~20–40cm, camera perpendicular.</div>
+
+    <!-- AR.js scene -->
     <a-scene
       embedded
       vr-mode-ui="enabled: false"
       renderer="logarithmicDepthBuffer: true;"
-      vr-mode-ui="enabled: false"
-      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; sourceWidth: 640; sourceHeight: 480; sourceFacingMode: environment;">
+      arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: true; sourceWidth: 1024; sourceHeight: 768; sourceFacingMode: environment;">
       
       <a-assets>
-        <!-- Preload the model; ensure model.glb is in same folder -->
         <a-asset-item id="myModel" src="model.glb"></a-asset-item>
       </a-assets>
 
-      <a-marker preset="hiro">
-        <a-entity id="model"
-                  gltf-model="#myModel"
-                  scale="0.5 0.5 0.5"
-                  rotation="0 180 0"
-                  position="0 0 0"
-                  animation-mixer
-                  visible="false">
-        </a-entity>
-
+      <a-marker preset="hiro" id="hiroMarker">
+        <a-entity id="model" gltf-model="#myModel" scale="0.8 0.8 0.8" rotation="0 180 0" position="0 0 0" visible="false"></a-entity>
         <a-plane rotation="-90 0 0" width="1.5" height="1.5" position="0 -0.001 0" material="opacity:0.0;"></a-plane>
       </a-marker>
 
@@ -65,73 +69,64 @@
 
   <script>
     const statusEl = document.getElementById('status');
+    const debugInfo = document.getElementById('debugInfo');
     const debugVideo = document.getElementById('debugVideo');
-    const overlayLog = document.getElementById('overlayLog');
+    const foundOverlay = document.getElementById('foundOverlay');
 
-    function setStatus(text) { statusEl.textContent = 'Status: ' + text; console.log(text); overlayLog.textContent = 'log: ' + text; }
+    function setStatus(t) { statusEl.textContent = 'Status: ' + t; console.log(t); debugInfo.textContent = 'Debug: ' + t; }
 
-    // Try to get the environment (rear) camera first. If not available, fallback.
-    async function startDebugStream() {
-      const constraintsPreferEnv = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false };
-      const constraintsFallback = { video: true, audio: false };
-
+    // start preview with rear camera if possible
+    async function startPreview() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia(constraintsPreferEnv);
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
         debugVideo.srcObject = stream;
-        setStatus('Camera stream active (environment).');
-        return stream;
+        setStatus('Camera preview active (environment).');
       } catch (e) {
-        console.warn('Env camera failed, trying default camera', e);
         try {
-          const stream2 = await navigator.mediaDevices.getUserMedia(constraintsFallback);
-          debugVideo.srcObject = stream2;
-          setStatus('Camera stream active (default).');
-          return stream2;
+          const s2 = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          debugVideo.srcObject = s2;
+          setStatus('Camera preview active (default).');
         } catch (err) {
-          console.error('Camera failed', err);
           setStatus('Camera permission denied or not available.');
-          return null;
         }
       }
     }
+    startPreview();
 
-    // Attach debug stream immediately so you can visually confirm camera frames
-    startDebugStream();
-
-    // A-Frame model load / error handlers
+    // A-Frame events
     document.addEventListener('DOMContentLoaded', () => {
-      const modelEnt = document.getElementById('model');
+      const model = document.getElementById('model');
+      const marker = document.getElementById('hiroMarker');
 
-      modelEnt.addEventListener('model-loaded', () => {
+      model.addEventListener('model-loaded', () => {
         setStatus('Model loaded successfully. Waiting for marker.');
-        modelEnt.setAttribute('visible', 'true');
       });
 
-      modelEnt.addEventListener('model-error', (evt) => {
-        setStatus('Model failed to load. Check model path.');
-        console.error('Model error', evt);
+      model.addEventListener('model-error', () => {
+        setStatus('Model failed to load — check model path.');
       });
 
-      // Marker found / lost events
-      const marker = document.querySelector('a-marker');
-      marker.addEventListener('markerFound', () => { setStatus('Marker FOUND — model should appear.'); });
-      marker.addEventListener('markerLost', () => { setStatus('Marker LOST'); });
+      marker.addEventListener('markerFound', () => {
+        setStatus('Marker FOUND — model should appear.');
+        foundOverlay.classList.add('show');
+        // make model visible (safety)
+        model.setAttribute('visible', 'true');
+      });
+
+      marker.addEventListener('markerLost', () => {
+        setStatus('Marker LOST');
+        foundOverlay.classList.remove('show');
+      });
     });
 
-    // Additional check: ensure page is not inside an in-app browser
-    (function detectInApp() {
-      const ua = navigator.userAgent || '';
-      const inApp = /Instagram|FBAN|FBAV|Twitter|WhatsApp|Line|Messenger/i.test(ua);
-      if (inApp) {
-        setStatus('Detected in-app browser — open in Chrome/Safari for camera access.');
-      }
-    })();
-
-    // Print extra debug info to console (helpful if you use remote debugging)
-    console.log('UserAgent:', navigator.userAgent);
-    navigator.mediaDevices && navigator.mediaDevices.enumerateDevices && navigator.mediaDevices.enumerateDevices()
-      .then(devs => console.log('Devices:', devs))
-      .catch(e => console.warn('Could not list devices', e));
+    // Extra: print useful device info to console for debugging
+    console.log('UserAgent:', navigator.userAgent || '');
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(devs => console.log('Devices:', devs)).catch(()=>{});
+    }
   </script>
 </body>
 </html>
