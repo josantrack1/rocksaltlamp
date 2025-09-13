@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>3D AR Viewer</title>
+  <script type="module"
+    src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <style>
+    body,html{height:100%;margin:0}
+    .wrap{display:flex;align-items:center;justify-content:center;height:100%}
+    model-viewer{width:100%;max-width:900px;height:80vh;border-radius:12px;box-shadow:0 6px 30px rgba(0,0,0,.12)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <model-viewer
+      src="model.glb"
+      alt="3D model"
+      ar
+      ar-modes="scene-viewer quick-look webxr"
+      ios-src=""       <!-- put model.usdz here if you have it, e.g. "model.usdz" -->
+      camera-controls
+      auto-rotate
+      environment-image="neutral"
+      exposure="1">
+    </model-viewer>
+  </div>
+</body>
+</html>
